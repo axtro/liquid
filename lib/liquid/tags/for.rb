@@ -20,9 +20,27 @@ module Liquid
   #
   #    {% for item in collection limit:5 offset:10 %}
   #      {{ item.name }}
-  #    {% end %}             
+  #    {% end %}
   #
   #  To reverse the for loop simply use {% for item in collection reversed %}
+  #
+  #  You can also loop over a collection in chunks. Instead of looping over each
+  #  item individually, the for loop will give you the items in arrays of the
+  #  specified size. If the size of the collection is not dividable by the
+  #  specified number of chunks, the chunks at the end will get 1 item less
+  #  then the first chunks to get a uniform distribution over all chunks.
+  #  The chunk argument works in conjunction with limit, offset or reversed, too.
+  #
+  #    {% for chunk in collection chunks:3 %}       # collection = [1, 2, 3, 4, 5, 6, 7]
+  #      Row {{forloop.index}}:
+  #      {% for item in chunk %}
+  #        {{ item.name }}
+  #      {% endfor %}
+  #    {% endfor %}
+  #  would return:
+  #    Row 1: 123
+  #    Row 2: 45
+  #    Row 3: 67
   #
   # == Available variables:
   #
@@ -43,12 +61,12 @@ module Liquid
   #
   class For < Block                                             
     Syntax = /(\w+)\s+in\s+(#{Expression}+)\s*(reversed)?/   
-  
+
     def initialize(tag_name, markup, tokens)
       if markup =~ Syntax
         @variable_name = $1
         @collection_name = $2
-        @name = "#{$1}-#{$2}"           
+        @name = "#{$1}-#{$2}"
         @reversed = $3             
         @attributes = {}
         markup.scan(TagAttributes) do |key, value|
@@ -68,7 +86,7 @@ module Liquid
       collection = collection.to_a if collection.is_a?(Range)
     
       return '' unless collection.respond_to?(:each) 
-                                                 
+    
       from = if @attributes['offset'] == 'continue'
         context.registers[:for][@name].to_i
       else
@@ -86,7 +104,17 @@ module Liquid
       segment.reverse! if @reversed
 
       result = []
-        
+      if @attributes['chunks']
+        chunk_count = context[@attributes['chunks']]
+        chunk_length = segment.length / chunk_count
+        padding_count = segment.length % chunk_count
+        chunks = []
+        (1..chunk_count).each do |i|
+          chunks << segment.slice!(0, chunk_length + (i <= padding_count ? 1 : 0))
+        end
+        segment = chunks
+      end
+
       length = segment.length            
             
       # Store our progress through the collection for the continue flag
