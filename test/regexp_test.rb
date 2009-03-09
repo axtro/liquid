@@ -12,6 +12,10 @@ class RegexpTest < Test::Unit::TestCase
   end
   
 
+  def test_empty_quotes
+    assert_equal ["''", '""'], '\'\', ""'.scan(QuotedFragment)
+  end
+  
   def test_words
     assert_equal ['arg1', 'arg2'], 'arg1 arg2'.scan(QuotedFragment)
   end
